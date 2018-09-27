@@ -1,7 +1,7 @@
 ; ***************************************
 ; Projeto 1 - Microcomputadores         *
 ;                                       *
-; MCU: PIC16F628A	Clock: 10Hz         *
+; MCU: PIC16F628A	Clock: 4MHz         *
 ;                                       *
 ; Autores: David Riff de F. Tenorio     *
 ;          Diego Maia Hamilton          *
@@ -22,23 +22,23 @@
 #define     bank1       bsf     STATUS,RP0
 
 ; --- CONSTANTES ---
-DELAY_1S    equ     D'1'
+DELAY_1S    equ     D'246'
 
 ; --- ENTRADAS ---
 #define     partida         PORTB,RB0
 #define     fumaca          PORTA,RA0
 #define     luminosidade    PORTA,RA1
-#define     presenca1       PORTA,RA2
-#define     presenca2       PORTA,RA3
-#define     presenca3       PORTA,RA5
+#define     presenca1       PORTA,RB5
+#define     presenca2       PORTA,RB6
+#define     presenca3       PORTA,RB7
 
 ; --- SAIDAS ---
-#define     buzina          PORTB,RB3
-#define     on              PORTB,RB2
+#define     buzina          PORTB,RA3
+#define     on              PORTB,RA2
 
-#define     luz1            PORTB,RB5
-#define     luz2            PORTB,RB6
-#define     luz3            PORTB,RB7
+#define     luz1            PORTB,RB1
+#define     luz2            PORTB,RB2
+#define     luz3            PORTB,RB3
 
 ; --- DEFINICOES GERAIS ---
 #define     thab        INTCON,TOIE     ; habilita interrupcao
@@ -48,7 +48,11 @@ DELAY_1S    equ     D'1'
 
 ; --- REGISTRADORES DE USO GERAL ---
     cblock 0x20
-        temporario
+        contador1
+		contador2
+		contador3
+		contador fumaca
+		presenca_ativa
     endc
 
 ; --- VETOR DE RESET ---
@@ -64,9 +68,9 @@ main:
     bank1
     movlw   B'11111111'     
     movwf   TRISA           ; port a como input
-    movlw   B'00000001'
+    movlw   B'00000011'
     movwf   TRISB           ; pb0 como input o resto como output
-    movlw   B'10110001'     
+    movlw   B'11100001'     
     movwf   OPTION_REG      ; define opcoes de operacao prescaler 1:4
 
     movlw   B'00000000'
@@ -82,6 +86,13 @@ main:
     movlw   B'00000000'
     movwf   PORTB           ; inicia outputs em 0
     
+	movlw	D'6'
+	movwf	contador1		; inicializa contador do sensor de presença1
+	movlw	D'6'
+	movwf	contador2		; inicializa contador do sensor de presença2
+	movlw	D'6'
+	movwf	contador3		; inicializa contador do sensor de presença3
+
 loop:
     btfss   partida         ; partida esta setado?
     call    start
@@ -92,11 +103,14 @@ start:
     call    check_presenca
     btfss   fumaca
     call    tratar_fumaca
+	btfss	tflag
+	
     
     return
 
 check_presenca:
-    btfss   presenca1       ; presenca 1 esta setado?
+	; checa detectores de presença sequencialmente
+    btfss   presenca1       ; se detector de presença 1 for ativado (estado logico baixo), chama rotina para acender luz, 
     call    light1
     btfss   presenca2
     call    light2
