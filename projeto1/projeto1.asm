@@ -26,17 +26,17 @@ DELAY_1S    equ     D'246'
 
 ; --- ENTRADAS ---
 #define     fumaca          PORTA,RA0
-#define     presenca1       PORTB,RB0   ;
-#define     presenca2       PORTB,RB1   ; presenca nivel alto -> presenca detectada
-#define     presenca3       PORTB,RB2   ;
+#define     presenca1       PORTB,RB1   ;
+#define     presenca2       PORTB,RB2   ; presenca nivel alto -> presenca detectada
+#define     presenca3       PORTB,RB3   ;
 #define     luminosidade1   PORTA,RA1   ;
 #define     luminosidade2   PORTA,RA2   ; luminosidade nivel baixo -> esta claro (luz nao precisa ser ligada)
 #define     luminosidade3   PORTA,RA3   ;
 
 ; --- SAIDAS ---
-#define     buzina          PORTB,RB3
-;#define    alarm          PORTB,RB4
-#define     on              PORTA,RA4
+#define     buzina          PORTB,RA7
+;#define    alarm          PORTB,RA4
+#define     on              PORTA,RB4
 
 #define     luz1            PORTB,RB5
 #define     luz2            PORTB,RB6
@@ -46,10 +46,10 @@ DELAY_1S    equ     D'246'
 #define     thab        INTCON,TOIE     ; habilita interrupcao
 #define     tflag       INTCON,T0IF     ; timer overflow
 #define     zero        STATUS,Z        ; resultado da ultima operacao foi 0
-#define     ativo1      H'0001'         ; sensor de presenca 1 ativo
-#define     ativo2      H'0002'         ; sensor de presenca 2 ativo
-#define     ativo3      H'0003'         ; sensor de presenca 3 ativo
-#define     ativa_f     H'0004'         ; sensor de fuma�a 	ativo
+#define     ativo1      B'00000001'         ; sensor de presenca 1 ativo
+#define     ativo2      B'00000010'         ; sensor de presenca 2 ativo
+#define     ativo3      B'00000100'         ; sensor de presenca 3 ativo
+#define     ativa_f     B'00001000'         ; sensor de fumaca 	ativo
 #
 
 ; --- REGISTRADORES DE USO GERAL ---
@@ -74,7 +74,7 @@ main:
     bank1
     movlw   B'00001111'     
     movwf   TRISA           ; 1 - input, 0 - ouput
-    movlw   B'00000111'
+    movlw   B'00001111'
     movwf   TRISB           ; MSB   ...    LSB
     movlw   B'10110001'     
     movwf   OPTION_REG      ; define opcoes de operacao prescaler 1:4
@@ -91,7 +91,9 @@ main:
 
     movlw   B'00000000'
     movwf   PORTB           ; inicia outputs em 0
-    
+    movlw   B'00000000'
+    movwf   PORTA           ; inicia outputs em 0
+
 	movlw	D'60'
 	movwf	contador1		; inicializa contador do sensor de presenca1
 	movlw	D'60'
@@ -102,7 +104,10 @@ main:
 	movwf	contador_fumaca	; inicializa contador do sensor de fumaca
 	movlw	D'0'
 	movwf	presenca_ativa
-	
+	clrf    TMR0
+    bcf     tflag
+    movlw   DELAY_1S
+    movwf   TMR0
 start:
     call    check_presenca
 ;    btfsc   fumaca
@@ -111,23 +116,27 @@ start:
     call    contador
     goto start
 
-    return
-
 check_presenca:
     btfss   presenca1               ; checa sensores da secao 1
     goto	check2
-	btfsc   luminosidade1
-    bsf     presenca_ativa, ativo1   ; ativa contagem (liga a luz) da secao 1
+	btfss   luminosidade1
+    goto check2
+	bsf     presenca_ativa, ativo1   ; ativa contagem (liga a luz) da secao 1
+	bsf		luz1
 check2:
 	btfss   presenca2               ; checa sensores da secao 2
 	goto 	check3
-	btfsc   luminosidade2
-    bsf     presenca_ativa, ativo2  ; ativa contagem (liga a luz) da secao 2
+	btfss   luminosidade2
+	goto	check3
+	bsf     presenca_ativa, ativo2  ; ativa contagem (liga a luz) da secao 2
+	bsf		luz2
 check3:  
 	btfss   presenca3              ; checa sensores da secao 3
     goto	end_check
-	btfsc   luminosidade3
-    bsf     presenca_ativa, ativo3  ; ativa contagem (liga a luz) da secao 3
+	btfss   luminosidade3
+    goto	end_check
+	bsf     presenca_ativa, ativo3  ; ativa contagem (liga a luz) da secao 3
+	bsf		luz3
 end_check:
     return
 
@@ -136,17 +145,19 @@ tratar_fumaca:
     return
 
 contador:
-    clrf    TMR0
     bcf     tflag
 test_ativo1:
+	btfsc	presenca_ativa, ativo1
     decfsz  contador1, 1
     goto    test_ativo2
     call    reset_cont1
 test_ativo2:
+	btfsc	presenca_ativa, ativo2
     decfsz  contador2, 1
     goto    test_ativo3
     call    reset_cont2
 test_ativo3:
+	btfsc	presenca_ativa, ativo3
     decfsz  contador3, 1
     goto    test_fumaca
     call    reset_cont3
@@ -163,22 +174,22 @@ end_fumaca:
     return  
 
 reset_cont1:
-    movlw D'60'
-    movwf contador1
-    bcf presenca_ativa, ativo1
-    bcf luz1
+    movlw 	D'60'
+    movwf 	contador1
+    bcf 	presenca_ativa, ativo1
+    bcf 	luz1
     return
 reset_cont2:
-    movlw D'60'
-    movwf contador2
-    bcf presenca_ativa, ativo2
-    bcf luz2
+    movlw	 D'60'
+    movwf 	contador2
+    bcf 	presenca_ativa, ativo2
+    bcf 	luz2
     return
 reset_cont3:
-    movlw D'60'
-    movwf contador3
-    bcf presenca_ativa, ativo3
-    bcf luz3
+    movlw 	D'60'
+    movwf 	contador3
+    bcf 	presenca_ativa, ativo3
+    bcf 	luz3
     return
 
 delay:
