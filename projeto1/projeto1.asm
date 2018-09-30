@@ -25,25 +25,26 @@
 DELAY_1S    equ     D'246'
 
 ; --- ENTRADAS ---
-#define     partida         PORTB,RB0
-#define     fumaca          PORTA,RA0
-#define     luminosidade    PORTA,RA1
-#define     presenca1       PORTA,RB5
-#define     presenca2       PORTA,RB6
-#define     presenca3       PORTA,RB7
+#define     fumaca          PORTA,RA0;
+#define     presenca1       PORTB,RB0;
+#define     presenca2       PORTB,RB1;
+#define     presenca3       PORTB,RB2;
+#define     luminosidade1   PORTA,RA1;
+#define     luminosidade2   PORTA,RA2;
+#define     luminosidade3   PORTA,RA3;
 
 ; --- SAIDAS ---
-#define     buzina          PORTB,RA3
-#define     on              PORTB,RA2
+#define     buzina          PORTB,RB3
+;#define    buzzer          PORTB,RB4
+#define     on              PORTA,RA4
 
-#define     luz1            PORTB,RB1
-#define     luz2            PORTB,RB2
-#define     luz3            PORTB,RB3
+#define     luz1            PORTB,RB5
+#define     luz2            PORTB,RB6
+#define     luz3            PORTB,RB7
 
 ; --- DEFINICOES GERAIS ---
 #define     thab        INTCON,TOIE     ; habilita interrupcao
 #define     tflag       INTCON,T0IF     ; timer overflow
-#define     pflag       INTCON,INTF     ; interrupcao em RB0
 #define     zero        STATUS,Z        ; resultado da ultima operacao foi 0
 
 ; --- REGISTRADORES DE USO GERAL ---
@@ -67,10 +68,10 @@ DELAY_1S    equ     D'246'
 main:
     bank1
     movlw   B'11111111'     
-    movwf   TRISA           ; port a como input
-    movlw   B'00000011'
-    movwf   TRISB           ; pb0 como input o resto como output
-    movlw   B'11100001'     
+    movwf   TRISA           ; port A como input
+    movlw   B'00000000'
+    movwf   TRISB           ; PB0 como input o resto como output
+    movlw   B'10110001'     
     movwf   OPTION_REG      ; define opcoes de operacao prescaler 1:4
 
     movlw   B'00000000'
@@ -87,11 +88,11 @@ main:
     movwf   PORTB           ; inicia outputs em 0
     
 	movlw	D'6'
-	movwf	contador1		; inicializa contador do sensor de presença1
+	movwf	contador1		; inicializa contador do sensor de presenï¿½a1
 	movlw	D'6'
-	movwf	contador2		; inicializa contador do sensor de presença2
+	movwf	contador2		; inicializa contador do sensor de presenï¿½a2
 	movlw	D'6'
-	movwf	contador3		; inicializa contador do sensor de presença3
+	movwf	contador3		; inicializa contador do sensor de presenï¿½a3
 
 loop:
     btfss   partida         ; partida esta setado?
@@ -109,8 +110,8 @@ start:
     return
 
 check_presenca:
-	; checa detectores de presença sequencialmente
-    btfss   presenca1       ; se detector de presença 1 for ativado (estado logico baixo), chama rotina para acender luz, 
+	; checa detectores de presenï¿½a sequencialmente
+    btfss   presenca1       ; se detector de presenï¿½a 1 for ativado (estado logico baixo), chama rotina para acender luz, 
     call    light1
     btfss   presenca2
     call    light2
