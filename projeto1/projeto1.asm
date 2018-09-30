@@ -49,7 +49,7 @@ DELAY_1S    equ     D'246'
 #define     ativo1      H'0001'         ; sensor de presenca 1 ativo
 #define     ativo2      H'0002'         ; sensor de presenca 2 ativo
 #define     ativo3      H'0003'         ; sensor de presenca 3 ativo
-#define     ativa_f     H'0004'         ; sensor de fumaça ativo
+#define     ativa_f     H'0004'         ; sensor de fumaï¿½a 	ativo
 #
 
 ; --- REGISTRADORES DE USO GERAL ---
@@ -57,7 +57,7 @@ DELAY_1S    equ     D'246'
         contador1
 		contador2
 		contador3
-		contador fumaca
+		contador_fumaca
 		presenca_ativa
     endc
 
@@ -99,11 +99,14 @@ main:
 	movlw	D'60'
 	movwf	contador3		; inicializa contador do sensor de presenca3
     movlw	D'10'
-	movwf	contador_fumaca	; inicializa contador do sensor de fumaça
+	movwf	contador_fumaca	; inicializa contador do sensor de fumaca
+	movlw	D'0'
+	movwf	presenca_ativa
+	
 start:
     call    check_presenca
-    btfsc   fumaca
-    call    tratar_fumaca
+;    btfsc   fumaca
+;    call    tratar_fumaca
     btfsc	tflag
     call    contador
     goto start
@@ -111,69 +114,72 @@ start:
     return
 
 check_presenca:
-    movf    presenca1,w            ; checa sensores da secao 1
-    andwf   luminosidade1,0
-    btfsc   zero
-    bsf     presenca_ativa,ativo1  ; ativa contagem (liga a luz) da secao 1
-
-    movf    presenca2, w            ; checa sensores da secao 2
-    andwf   luminosidade2, 0
-    btfsc   zero
+    btfss   presenca1               ; checa sensores da secao 1
+    goto	check2
+	btfsc   luminosidade1
+    bsf     presenca_ativa, ativo1   ; ativa contagem (liga a luz) da secao 1
+check2:
+	btfss   presenca2               ; checa sensores da secao 2
+	goto 	check3
+	btfsc   luminosidade2
     bsf     presenca_ativa, ativo2  ; ativa contagem (liga a luz) da secao 2
-
-    movf    presenca3, w            ; checa sensores da secao 3
-    andwf   luminosidade3, 0
-    btfsc   zero
+check3:  
+	btfss   presenca3              ; checa sensores da secao 3
+    goto	end_check
+	btfsc   luminosidade3
     bsf     presenca_ativa, ativo3  ; ativa contagem (liga a luz) da secao 3
+end_check:
     return
 
 tratar_fumaca:
-    bsf ativa_f
+    bsf presenca_ativa, ativa_f
     return
 
 contador:
-    clrf TMR0
-    bcf tflag
-
-    btfss   presenca_ativa, ativo1
+    clrf    TMR0
+    bcf     tflag
+test_ativo1:
+    decfsz  contador1, 1
     goto    test_ativo2
-    decfsz  contador1, w
     call    reset_cont1
-    bsf     luz1
 test_ativo2:
-    btfss   presenca_ativa, ativo2
+    decfsz  contador2, 1
     goto    test_ativo3
-    decfsz  contador2, w
     call    reset_cont2
-    bsf     luz2
 test_ativo3:
-    btfss   presenca_ativa, ativo3
+    decfsz  contador3, 1
     goto    test_fumaca
-    decfsz  contador3, w
     call    reset_cont3
-    bsf     luz3
 test_fumaca:
-    ;implementar
-    return
+    goto    end_fumaca  ;testar demais funcionalidades antes de implementar fumaca
+    btfsc   fumaca
+    decfsz  contador_fumaca
+    goto    end_fumaca
+    btfss   presenca_ativa, ativa_f
+    bsf     presenca_ativa, ativa_f
+    movlw   D'10'
+    movwf   contador_fumaca
+end_fumaca:
+    return  
 
 reset_cont1:
     movlw D'60'
     movwf contador1
     bcf presenca_ativa, ativo1
     bcf luz1
-    goto test_ativo2
+    return
 reset_cont2:
     movlw D'60'
     movwf contador2
     bcf presenca_ativa, ativo2
     bcf luz2
-    goto test_ativo3
+    return
 reset_cont3:
     movlw D'60'
     movwf contador3
     bcf presenca_ativa, ativo3
     bcf luz3
-    goto test_fumaca
+    return
 
 delay:
     clrf    TMR0
