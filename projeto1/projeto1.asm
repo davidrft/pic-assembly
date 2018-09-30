@@ -72,7 +72,7 @@ DELAY_1S    equ     D'246'
 ; --- PROGRAMA PRINCIPAL ---
 main:
     bank1
-    movlw       B'00001111'     
+    movlw       B'00011111'     
     movwf       TRISA           ; 1 - input, 0 - ouput
     movlw       B'00001111'
     movwf       TRISB           ; MSB   ...    LSB
@@ -146,6 +146,8 @@ tratar_fumaca:
 
 contador:
     bcf         tflag
+	movlw		DELAY_1S
+	movwf		TMR0
 test_ativo1:
 	btfsc       presenca_ativa,ativo1
     decfsz      contador1,1
