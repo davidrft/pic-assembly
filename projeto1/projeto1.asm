@@ -191,15 +191,3 @@ reset_cont3:
     bcf 	presenca_ativa, ativo3
     bcf 	luz3
     return
-
-delay:
-    clrf    TMR0
-    bcf     tflag
-    movlw   DELAY_1S
-    movwf   TMR0
-delay1:
-    btfss   tflag
-    goto    delay1
-    return
-
-    end
