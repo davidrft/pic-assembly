@@ -191,3 +191,5 @@ reset_cont3:
     bcf 	presenca_ativa, ativo3
     bcf 	luz3
     return
+
+end
