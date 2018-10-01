@@ -34,8 +34,8 @@ DELAY_1S    equ     D'246'
 #define     luminosidade3   PORTA,RA3   ;
 
 ; --- SAIDAS ---
-#define     buzina          PORTB,RA7
-;#define    alarm          PORTB,RA4
+#define     buzina          PORTB,RB0
+;#define    alarm           PORTB,RA4
 #define     on              PORTA,RB4
 
 #define     luz1            PORTB,RB5
@@ -74,7 +74,7 @@ main:
     bank1
     movlw       B'00011111'     
     movwf       TRISA           ; 1 - input, 0 - ouput
-    movlw       B'00001111'
+    movlw       B'00001110'
     movwf       TRISB           ; MSB   ...    LSB
     movlw       B'10110001'     
     movwf       OPTION_REG      ; define opcoes de operacao prescaler 1:4
@@ -164,16 +164,22 @@ test_ativo3:
     goto        test_fumaca
     call        reset_cont3
 test_fumaca:
-    goto        end_fumaca  ;testar demais funcionalidades antes de implementar fumaca
-    btfsc       fumaca
+    btfss       fumaca
+    goto        reset_contf
     decfsz      contador_fumaca
     goto        end_fumaca
-    btfss       presenca_ativa, ativa_f
-    bsf         presenca_ativa, ativa_f
+	bsf			buzina
+reset_contf:
     movlw       D'10'
     movwf       contador_fumaca
+    btfss       fumaca
+	bcf			buzina
 end_fumaca:
-    return  
+    movlw       D'8'
+    xorwf       contador_fumaca, w
+    btfsc       zero
+    bcf         buzina
+    return
 
 reset_cont1:
     movlw       D'60'
