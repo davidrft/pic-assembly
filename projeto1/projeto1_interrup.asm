@@ -1,225 +1,233 @@
 ; ***************************************
-; Projeto 1 - Microcomputadores         *
+; PROJETO 1 - MICROCOMPUTADORES         *
 ;                                       *
-; MCU: PIC16F628A	Clock: 4MHz         *
+; MCU: PIC16F628A	CLOCK: 4MHZ         *
 ;                                       *
-; Autores: David Riff de F. Tenorio     *
-;          Diego Maia Hamilton          *
+; AUTORES: DAVID RIFF DE F. TENORIO     *
+;          DIEGO MAIA HAMILTON          *
 ;                                       *
-; Versao: 1.0                           *
-; Data: Novembro de 2018                *
+; VERSAO: 2.0 (COM INTERRUPÇÃO)         *
+; DATA: OUTUBRO DE 2018                 *
 ; ***************************************
 
-#include <p16f628a.inc>
+#INCLUDE <P16F628A.INC>
 
-    list		p=16f628a
+    LIST		P=16F628A
 
 ; --- FUSE BITS ---
-    __config     _BOREN_OFF & _CP_OFF & _PWRTE_ON & _WDT_OFF & _LVP_OFF & _MCLRE_ON
+    __CONFIG     _BOREN_OFF & _CP_OFF & _PWRTE_ON & _WDT_OFF & _LVP_OFF & _MCLRE_ON
 
 ; --- PAGINACAO DE MEMORIA ---
-#define     bank0       bcf     STATUS,RP0
-#define     bank1       bsf     STATUS,RP0
+#DEFINE     BANK0       BCF     STATUS,RP0
+#DEFINE     BANK1       BSF     STATUS,RP0
 
 ; --- CONSTANTES ---
-DELAY_1S    equ     D'246'
+DELAY_1S    EQU     D'246'
 
 ; --- ENTRADAS ---
-#define     luminosidade    PORTB,RB7   ; sensor de luminosidade
-#define     fumaca          PORTB,RB0   ; sensor de fumaça
-#define     presenca1       PORTB,RB4   ;
-#define     presenca2       PORTB,RB5   ; presenca nivel alto -> presenca detectada
-#define     presenca3       PORTB,RB6   ;
+#DEFINE     LUMINOSIDADE    PORTB,RB7   ; SENSOR DE LUMINOSIDADE
+#DEFINE     FUMACA          PORTB,RB0   ; SENSOR DE FUMA�A
+#DEFINE     PARTIDA         PORTB,RB2   ; BOT�O DE PARTIDA
+#DEFINE     PRESENCA1       PORTB,RB4   ;
+#DEFINE     PRESENCA2       PORTB,RB5   ; PRESENCA NIVEL ALTO -> PRESENCA DETECTADA
+#DEFINE     PRESENCA3       PORTB,RB6   ;
 
 ; --- SAIDAS ---
-#define     buzina          PORTA,RA3   ; saida do alarme
-#define     on              PORTB,RB1   ; saida de on/off
+#DEFINE     BUZINA          PORTA,RA3   ; SAIDA DO ALARME
+#DEFINE     ON              PORTB,RB1   ; SAIDA DE ON/OFF
 
-#define     luz1            PORTA,RA0   ; saida da luz 1
-#define     luz2            PORTA,RA1   ; saida da luz 2
-#define     luz3            PORTA,RA2   ; saida da luz 3
+#DEFINE     LUZ1            PORTA,RA0   ; SAIDA DA LUZ 1
+#DEFINE     LUZ2            PORTA,RA1   ; SAIDA DA LUZ 2
+#DEFINE     LUZ3            PORTA,RA2   ; SAIDA DA LUZ 3
 
 ; --- DEFINICOES GERAIS ---
-#define     thab        INTCON,TOIE     ; habilita interrupcao
-#define     tflag       INTCON,T0IF     ; timer overflow
-#define     extflag     INTCON,INTF     ; interrupcao externa
-#define     rflag       INTCON,RBIF     ; interrupcao de mudanca de estado RB4 - RB7
-#define     zero        STATUS,Z        ; resultado da ultima operacao foi 0
-#define     ativo1      B'00000001'     ; sensor de presenca 1 ativo
-#define     ativo2      B'00000010'     ; sensor de presenca 2 ativo
-#define     ativo3      B'00000100'     ; sensor de presenca 3 ativo
-#define     ativa_f     B'00001000'     ; sensor de fumaca 	ativo
+#DEFINE     THAB        INTCON,TOIE     ; HABILITA INTERRUPCAO
+#DEFINE     TFLAG       INTCON,T0IF     ; TIMER OVERFLOW
+#DEFINE     EXTFLAG     INTCON,INTF     ; INTERRUPCAO EXTERNA
+#DEFINE     RFLAG       INTCON,RBIF     ; INTERRUPCAO DE MUDANCA DE ESTADO RB4 - RB7
+#DEFINE     ZERO        STATUS,Z        ; RESULTADO DA ULTIMA OPERACAO FOI 0
+#DEFINE     ATIVO1      B'00000001'     ; SENSOR DE PRESENCA 1 ATIVO
+#DEFINE     ATIVO2      B'00000010'     ; SENSOR DE PRESENCA 2 ATIVO
+#DEFINE     ATIVO3      B'00000100'     ; SENSOR DE PRESENCA 3 ATIVO
+#DEFINE     ATIVA_F     B'00001000'     ; SENSOR DE FUMACA 	ATIVO
 #
 
 ; --- REGISTRADORES DE USO GERAL ---
-    cblock 0x20
+    CBLOCK 0X20
         W_TEMP
         STATUS_TEMP
 
-        contador1
-		contador2
-		contador3
-		contador_fumaca
-		presenca_ativa
-    endc
+        CONTADOR1
+		CONTADOR2
+		CONTADOR3
+		CONTADOR_FUMACA
+		PRESENCA_ATIVA
+    ENDC
 
 ; --- VETOR DE RESET ---
-    org         H'0000'                 ; origem no endereco 0 de memoria
-    goto        main                    ; desvia do vetor de interrupcao
+    ORG         H'0000'                 ; ORIGEM NO ENDERECO 0 DE MEMORIA
+    GOTO        MAIN                    ; DESVIA DO VETOR DE INTERRUPCAO
 
 ; --- VETOR DE INTERRUPCAO ---
-    org         H'0004'
+    ORG         H'0004'
 
 ; --- SALVA CONTEXTO ---
-    movwf       W_TEMP                  ; Copia o conteúdo de work para W_TEMP 
-    swapf       STATUS,W                ; Move o conteúdo de status com os nibbles invertidos para W
-    bank0                               ; Seleciona o banco 0 de memória
-    movwf       STATUS_TEMP             ; Copia o conteúdo de STATUS com os nibbles invertidos para STATUS_TEMP
+    MOVWF       W_TEMP                  ; COPIA O CONTE�DO DE WORK PARA W_TEMP 
+    SWAPF       STATUS,W                ; MOVE O CONTE�DO DE STATUS COM OS NIBBLES INVERTIDOS PARA W
+    BANK0                               ; SELECIONA O BANCO 0 DE MEM�RIA
+    MOVWF       STATUS_TEMP             ; COPIA O CONTE�DO DE STATUS COM OS NIBBLES INVERTIDOS PARA STATUS_TEMP
 
 ; --- TRATAMENTO DA ISR ---
-    btfsc       extflag                 ; interrupcao pelo sensor de fumaca?
-    call        test_fumaca             
+    BTFSC       EXTFLAG                 ; INTERRUPCAO PELO SENSOR DE FUMACA?
+    CALL        TEST_FUMACA             
 
-    btfsc       rflag                   ; interrupcao pelos sensores de presença?
-    call        check_presenca
+    BTFSC       RFLAG                   ; INTERRUPCAO PELOS SENSORES DE PRESEN�A?
+    CALL        CHECK_PRESENCA
 
-    btfsc       tflag                   ; estouro do timer 0?
-    call        contador
+    BTFSC       TFLAG                   ; ESTOURO DO TIMER 0?
+    CALL        CONTADOR
 
 ; --- RECUPERACAO DE CONTEXTO ---
-exit_ISR:
-    swapf       STATUS_TEMP,W_TEMP      ; Copia em W o conteúdo de STATUS_TEMP com os nibbles invertidos
-    movwf       STATUS                  ; Recuperando o conteúdo de STATUS
-    swapf       W_TEMP,F                ; W_TEMP = W_TEMP com os nibbles invertidos
-    swapf       W_TEMP,W                ; Recupera o conteúdo de work
+EXIT_ISR:
+    SWAPF       STATUS_TEMP,W_TEMP      ; COPIA EM W O CONTEÚDO DE STATUS_TEMP COM OS NIBBLES INVERTIDOS
+    MOVWF       STATUS                  ; RECUPERANDO O CONTEÚDO DE STATUS
+    SWAPF       W_TEMP,F                ; W_TEMP = W_TEMP COM OS NIBBLES INVERTIDOS
+    SWAPF       W_TEMP,W                ; RECUPERA O CONTEÚDO DE WORK
 
-    retfie
+    RETFIE
 
 ; --- SUBROTINAS ---
-check_presenca:
-    btfss       presenca1               ; checa sensores da secao 1
-    goto   	    check2
-	btfss       luminosidade
-    goto        check2
-	bsf         presenca_ativa,ativo1   ; ativa contagem (liga a luz) da secao 1
-	bsf		    luz1
-check2:  
-	btfss       presenca2               ; checa sensores da secao 2
-	goto 	    check3
-	btfss       luminosidade
-	goto	    check3
-	bsf         presenca_ativa,ativo2  ; ativa contagem (liga a luz) da secao 2
-	bsf		    luz2
-check3:  
-	btfss       presenca3              ; checa sensores da secao 3
-    goto        end_check
-	btfss       luminosidade
-    goto        end_check
-	bsf         presenca_ativa,ativo3  ; ativa contagem (liga a luz) da secao 3
-	bsf		    luz3
-end_check:
-    return
+CHECK_PRESENCA:
+    BCF         RFLAG
+    BTFSS       PRESENCA1               ; CHECA SENSORES DA SECAO 1
+    GOTO   	    CHECK2
+	BTFSS       LUMINOSIDADE
+    GOTO        CHECK2
+	BSF         PRESENCA_ATIVA,ATIVO1   ; ATIVA CONTAGEM (LIGA A LUZ) DA SECAO 1
+	BSF		    LUZ1
+CHECK2:  
+	BTFSS       PRESENCA2               ; CHECA SENSORES DA SECAO 2
+	GOTO 	    CHECK3
+	BTFSS       LUMINOSIDADE
+	GOTO	    CHECK3
+	BSF         PRESENCA_ATIVA,ATIVO2  ; ATIVA CONTAGEM (LIGA A LUZ) DA SECAO 2
+	BSF		    LUZ2
+CHECK3:  
+	BTFSS       PRESENCA3              ; CHECA SENSORES DA SECAO 3
+    GOTO        END_CHECK
+	BTFSS       LUMINOSIDADE
+    GOTO        END_CHECK
+	BSF         PRESENCA_ATIVA,ATIVO3  ; ATIVA CONTAGEM (LIGA A LUZ) DA SECAO 3
+	BSF		    LUZ3
+END_CHECK:
+    RETURN
 
-contador:
-    bcf         tflag
-	movlw		DELAY_1S
-	movwf		TMR0
-test_ativo1:
-	btfsc       presenca_ativa,ativo1
-    decfsz      contador1,1
-    goto        test_ativo2
-    call        reset_cont1
-test_ativo2: 
-	btfsc	    presenca_ativa,ativo2
-    decfsz      contador2,1
-    goto        test_ativo3
-    call        reset_cont2
-test_ativo3:
-	btfsc       presenca_ativa, ativo3
-    decfsz      contador3, 1
-    goto        test_fumaca
-    call        reset_cont3
-test_fumaca:
-    btfss       fumaca
-    goto        reset_contf
-    decfsz      contador_fumaca
-    goto        end_fumaca
-	bsf			buzina
-reset_contf:
-    movlw       D'10'
-    movwf       contador_fumaca
-    btfss       fumaca
-	bcf			buzina
-end_fumaca:
-    movlw       D'8'
-    xorwf       contador_fumaca, w
-    btfsc       zero
-    bcf         buzina
-    return
+CONTADOR:
+    BCF         TFLAG
+	MOVLW		DELAY_1S
+	MOVWF		TMR0
+TEST_ATIVO1:
+	BTFSC       PRESENCA_ATIVA,ATIVO1
+    DECFSZ      CONTADOR1,1
+    GOTO        TEST_ATIVO2
+    CALL        RESET_CONT1
+TEST_ATIVO2: 
+	BTFSC	    PRESENCA_ATIVA,ATIVO2
+    DECFSZ      CONTADOR2,1
+    GOTO        TEST_ATIVO3
+    CALL        RESET_CONT2
+TEST_ATIVO3:
+	BTFSC       PRESENCA_ATIVA, ATIVO3
+    DECFSZ      CONTADOR3,1
+    GOTO        TEST_FUMACA
+    CALL        RESET_CONT3
+TEST_FUMACA:
+    BCF         EXTFLAG
+    BTFSS       FUMACA
+    GOTO        RESET_CONTF
+    DECFSZ      CONTADOR_FUMACA
+    GOTO        END_FUMACA
+	BSF			BUZINA
+RESET_CONTF:
+    MOVLW       D'10'
+    MOVWF       CONTADOR_FUMACA
+    BTFSS       FUMACA
+	BCF			BUZINA
+END_FUMACA:
+    MOVLW       D'8'
+    XORWF       CONTADOR_FUMACA, W
+    BTFSC       ZERO
+    BCF         BUZINA
+    RETURN
 
-reset_cont1:
-    movlw       D'60'
-    movwf 	    contador1
-    bcf 	    presenca_ativa, ativo1
-    bcf 	    luz1
-    return
-reset_cont2:
-    movlw       D'60'
-    movwf 	    contador2
-    bcf 	    presenca_ativa, ativo2
-    bcf 	    luz2
-    return
-reset_cont3:
-    movlw       D'60'
-    movwf  	    contador3
-    bcf  	    presenca_ativa, ativo3
-    bcf 	    luz3
-    return
+RESET_CONT1:
+    MOVLW       D'60'
+    MOVWF 	    CONTADOR1
+    BCF 	    PRESENCA_ATIVA,ATIVO1
+    BCF 	    LUZ1
+    RETURN
+RESET_CONT2:
+    MOVLW       D'60'
+    MOVWF 	    CONTADOR2
+    BCF 	    PRESENCA_ATIVA,ATIVO2
+    BCF 	    LUZ2
+    RETURN
+RESET_CONT3:
+    MOVLW       D'60'
+    MOVWF  	    CONTADOR3
+    BCF  	    PRESENCA_ATIVA,ATIVO3
+    BCF 	    LUZ3
+    RETURN
 
 
 ; --- PROGRAMA PRINCIPAL ---
-main:
-    bank1
-    movlw       B'00000000'     
-    movwf       TRISA                    ; Port A como saida
-    movlw       B'11110001'
-    movwf       TRISB                    ; RB0, RB4, RB5, RB6 e RB7 como entrada
-    movlw       B'10110001'     
-    movwf       OPTION_REG               ; define opcoes de operacao prescaler 1:4
+MAIN:
+    BANK1
+    MOVLW       B'00000000'     
+    MOVWF       TRISA                    ; PORT A COMO SAIDA
+    MOVLW       B'11110101'
+    MOVWF       TRISB                    ; RB0, RB2, RB4, RB5, RB6 E RB7 COMO ENTRADA
+    MOVLW       B'10110001'     
+    MOVWF       OPTION_REG               ; DEFINE OPCOES DE OPERACAO PRESCALER 1:4
 
-    movlw       B'10111000'
-    movwf       INTCON                   ; define opcoes de interrupcao
+    MOVLW       B'00000000'
+    MOVWF       INTCON                   ; DEFINE OPCOES DE INTERRUPCAO
 
-    movlw       B'00001000'
-    movwf       PCON                     ; utilizar cristal interno de 4MHz
-    bank0
+    MOVLW       B'00001000'
+    MOVWF       PCON                     ; UTILIZAR CRISTAL INTERNO DE 4MHZ
+    BANK0
 
-    movlw       B'00000111'
-    movwf       CMCON                    ; entradas analogicas desativadas
+    MOVLW       B'00000111'
+    MOVWF       CMCON                    ; ENTRADAS ANALOGICAS DESATIVADAS
 
-    movlw       B'00000000'
-    movwf       PORTB                    ; inicia outputs em 0
-    movlw       B'00000000'
-    movwf       PORTA                    ; inicia outputs em 0
+    MOVLW       B'00000000'
+    MOVWF       PORTB                    ; INICIA OUTPUTS EM 0
+    MOVLW       B'00000000'
+    MOVWF       PORTA                    ; INICIA OUTPUTS EM 0
 
-	movlw  	    D'60'
-	movwf	    contador1		         ; inicializa contador do sensor de presenca1
-	movlw	    D'60'
-	movwf	    contador2		         ; inicializa contador do sensor de presenca2
-	movlw	    D'60'
-	movwf	    contador3	             ; inicializa contador do sensor de presenca3
-    movlw	    D'10'
-	movwf	    contador_fumaca	         ; inicializa contador do sensor de fumaca
-	movlw	    D'0'
-	movwf	    presenca_ativa
-	clrf        TMR0
-    bcf         tflag
-    movlw       DELAY_1S
-    movwf       TMR0
+	MOVLW  	    D'60'
+	MOVWF	    CONTADOR1		         ; INICIALIZA CONTADOR DO SENSOR DE PRESENCA1
+	MOVLW	    D'60'
+	MOVWF	    CONTADOR2		         ; INICIALIZA CONTADOR DO SENSOR DE PRESENCA2
+	MOVLW	    D'60'
+	MOVWF	    CONTADOR3	             ; INICIALIZA CONTADOR DO SENSOR DE PRESENCA3
+    MOVLW	    D'10'
+	MOVWF	    CONTADOR_FUMACA	         ; INICIALIZA CONTADOR DO SENSOR DE FUMACA
+	MOVLW	    D'0'
+	MOVWF	    PRESENCA_ATIVA
+	CLRF        TMR0
+    BCF         TFLAG
+    MOVLW       DELAY_1S
+    MOVWF       TMR0
 
-start:
-    bsf         on
-loop:
-    goto        loop 
+START:
+    BTFSS       PARTIDA                  ; VERIFICA SE PARTIDA EST� ATIVADA
+    GOTO        START                    ; ESPERA PARTIDA
+    BSF         ON                       ; INICIA EXECU��O DO PROGRAMA
+    BANK1
+    MOVLW       B'10111000'
+    MOVWF       INTCON                   ; DEFINE OPCOES DE INTERRUPCAO
+    BANK0
+    GOTO        $                        ; PERMANECE NESTA LINHA PELO RESTO DA EXECU��O
 
-    end
+    END
