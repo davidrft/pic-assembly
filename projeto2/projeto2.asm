@@ -1,5 +1,5 @@
 ; ***************************************
-; PROJETO 1 - MICROCOMPUTADORES         *
+; PROJETO 2 - MICROCOMPUTADORES         *
 ;                                       *
 ; MCU: PIC16F877A	CLOCK: 4MHZ         *
 ;                                       *
@@ -60,11 +60,6 @@ DELAY_1S    EQU     D'246'
 #DEFINE     EXTFLAG     INTCON, INTF     ; INTERRUPCAO EXTERNA
 #DEFINE     RFLAG       INTCON, RBIF     ; INTERRUPCAO DE MUDANCA DE ESTADO RB4 - RB7
 #DEFINE     ZERO        STATUS, Z        ; RESULTADO DA ULTIMA OPERACAO FOI 0
-#DEFINE     ATIVO1      B'00000001'     ; SENSOR DE PRESENCA 1 ATIVO
-#DEFINE     ATIVO2      B'00000010'     ; SENSOR DE PRESENCA 2 ATIVO
-#DEFINE     ATIVO3      B'00000100'     ; SENSOR DE PRESENCA 3 ATIVO
-#DEFINE     ATIVA_F     B'00001000'     ; SENSOR DE FUMACA 	ATIVO
-#
 
 ; --- REGISTRADORES DE USO GERAL ---
     CBLOCK 0X20
@@ -85,14 +80,6 @@ DELAY_1S    EQU     D'246'
     MOVWF       STATUS_TEMP             ; COPIA O CONTE�DO DE STATUS COM OS NIBBLES INVERTIDOS PARA STATUS_TEMP
 
 ; --- TRATAMENTO DA ISR ---
-    BTFSC       EXTFLAG                 ; INTERRUPCAO PELO SENSOR DE FUMACA?
-    CALL        TEST_FUMACA             
-
-    BTFSC       RFLAG                   ; INTERRUPCAO PELOS SENSORES DE PRESEN�A?
-    CALL        CHECK_PRESENCA
-
-    BTFSC       TFLAG                   ; ESTOURO DO TIMER 0?
-    CALL        CONTADOR
 
 ; --- RECUPERACAO DE CONTEXTO ---
 EXIT_ISR:
@@ -108,23 +95,35 @@ EXIT_ISR:
 
 ; --- PROGRAMA PRINCIPAL ---
 SETUP:
-    BANK0                               ; SELECIONA BANK0
+    BANKSEL     PORTA                   ; SELECIONA BANK0
     CLRF        PORTA                   ; LIMPA OS OUTPUTS NA PORTA
-    BANK1                               ; SELECIONA O BANK1
-    MOVLW       0x0D                    ; CONFIGURA RA<1:0> COMO ANALOGICOS
+    BANKSEL     ADCON1                  ; SELECIONA O BANK1
+    MOVLW       0x8D                    ; CONFIGURA RA<1:0> COMO ENTRADAS ANALOGICAS
+                                        ; CONFIGURA FOSC/2
+                                        ; CONFIGURA JUSTIFICADO A DIREITA
     MOVWF       ADCON1
+    BANKSEL     TRISA
     MOVLW       0x03                    ; CONFIGURA RA<1:0> COMO INPUTS
-    MOVWF       TRISA                          
+    MOVWF       TRISA            
 
-    BANK0                               ; SELECIONA BANK0
+    BANKSEL     ADCON0
+    CLRF        ADCON0                  ; CONFIGURA FOSC/2              
+
+    BANKSEL     PORTB                   ; SELECIONA BANK0
     CLRF        PORTB                   ; LIMPA SAIDAS EM PORTB
-    BANK1
+    BANKSEL     TRISB
     MOVLW       0x03
     MOVWF       TRISB                   ; CONFIGURA RB<1:0> COMO INPUTS
 
+    BANKSEL     INTCON
     MOVLW       0x00
     MOVWF       INTCON                  ; INICIA COM TODAS AS INTERRUPCOES DESATIVADAS
-    
+
+    BANKSEL     PORTC
+    CLRF        PORTC
+    BANKSEL     TRISC
+    CLRF        TRISC                   ; CONFIGURA RC0 COMO OUTPUT
+
 
     ; BANK1
     ; MOVLW       B'00000000'     
