@@ -1,9 +1,7 @@
-*.HEX
-*.O
-*.cof
-*.err
-*.lst
-*.map
-*.mcp
-*.mcs
-*.mcw
+# ignore everything
+*
+
+# except for:
+!*.asm
+!*.pdsprj
+!*/
