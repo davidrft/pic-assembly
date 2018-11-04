@@ -119,7 +119,8 @@ SETUP:
     MOVWF       TRISA            
  
     BANKSEL     ADCON0
-    CLRF        ADCON0                  ; CONFIGURA FOSC/2              
+	MOVLW		0x01
+    MOVWF       ADCON0                  ; CONFIGURA FOSC/2, LIGA CONVERSOR              
  
     ; -- CONFIGURACAO DO PWM --
     BANKSEL     T1CON
