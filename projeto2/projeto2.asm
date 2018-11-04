@@ -106,29 +106,29 @@ EXIT_ISR:
  
 ; --- PROGRAMA PRINCIPAL ---
 SETUP:
-    ; -- CONFIGURACAO DO CONVERSOR A/D --
-    BANKSEL     PORTA                   ; SELECIONA BANK0
-    CLRF        PORTA                   ; LIMPA OS OUTPUTS NA PORTA
-    BANKSEL     ADCON1                  ; SELECIONA O BANK1
-    MOVLW       B'10000100'             ; CONFIGURA RA<1:0> COMO ENTRADAS ANALOGICAS, VDD/VSS COMO REFERENCIA
-                                        ; CONFIGURA FOSC/2
-                                        ; CONFIGURA JUSTIFICADO A DIREITA
-    MOVWF       ADCON1
-    BANKSEL     TRISA
-    MOVLW       0x03                    ; CONFIGURA RA<1:0> COMO INPUTS
-    MOVWF       TRISA            
+    BANKSEL     TRISD
+    CLRF        TRISD                   ; CONFIGURA PORTA D COMO SAÍDA            
  
-    BANKSEL     ADCON0
-	MOVLW		0x01
-    MOVWF       ADCON0                  ; CONFIGURA FOSC/2, LIGA CONVERSOR              
- 
+    BANKSEL     TRISC
+    CLRF        TRISC                   ; CONFIGURA PORTA C COMO SAÍDA            
+    
+    BANKSEL OPTION_REG
+    MOVLW	B'11101000'		 ;HABILITA CLOCK EXTERNO
+	MOVWF	OPTION_REG	 ;DEFINE OP��ES DE OPERA��O
+    	                    				          ;PRESCALER DE 1:1
+
     ; -- CONFIGURACAO DO PWM --
     BANKSEL     T1CON
-    MOVLW       B'00001001'             ; ATIVA TIMER1, CLOCK INTERNO (FOSC/4), SEM PRESCALER
-    MOVWF       T1CON
-    MOVLW       B'00001100'             ; CONFIGURA 2 LSB DO DUTY CYCLE DO PWM PARA 0
-                                        ; CONFIGURA TIMER 1 NO MODO PWM
-    MOVWF       CCP1CON
+	MOVLW B'00001100'	        ;ATIVAR O PWM E COLOCA O DOIS BITS MENOS 
+							;SIGNIFICATVOS DO PWM PARA 00
+							;O PWM TEM 10 BITS ONDE OS OUTROS EST�O EM CCPR1L
+	MOVWF	CCP1CON  ;MODO DESLIGADO
+	BSF		T1CON,0    ; TMR1 LIGADO
+;    MOVLW       B'00000001'             ; ATIVA TIMER1, CLOCK INTERNO (FOSC/4), SEM PRESCALER
+;    MOVWF       T1CON
+;    MOVLW       B'00001100'             ; CONFIGURA 2 LSB DO DUTY CYCLE DO PWM PARA 0
+;                                        ; CONFIGURA TIMER 1 NO MODO PWM
+;    MOVWF       CCP1CON
  
     ; -- CONFIGURACAO DE I/O --
     BANKSEL     PORTB                   ; SELECIONA BANK0
@@ -140,12 +140,32 @@ SETUP:
     BANKSEL     INTCON
     MOVLW       0x00
     MOVWF       INTCON                  ; INICIA COM TODAS AS INTERRUPCOES DESATIVADAS
- 
+  
     BANKSEL     PORTC
     CLRF        PORTC
     BANKSEL     TRISC
     CLRF        TRISC                   ; CONFIGURA RC0 COMO OUTPUT
  
+     ; -- CONFIGURACAO DO CONVERSOR A/D --
+    BANKSEL     PORTA                   ; SELECIONA BANK0
+    CLRF        PORTA                   ; LIMPA OS OUTPUTS NA PORTA
+    BANKSEL     ADCON1                  ; SELECIONA O BANK1
+    MOVLW       B'10000100'             ; CONFIGURA RA<1:0> COMO ENTRADAS ANALOGICAS, VDD/VSS COMO REFERENCIA
+                                        ; CONFIGURA FOSC/2
+                                        ; CONFIGURA JUSTIFICADO A DIREITA
+    MOVWF       ADCON1
+    BANKSEL     TRISA
+    MOVLW       B'00000011'                    ; CONFIGURA RA<1:0> COMO INPUTS
+    MOVWF       TRISA
+    BANKSEL     ADCON0
+	MOVLW		0x01
+    MOVWF       ADCON0                  ; CONFIGURA FOSC/2, LIGA CONVERSOR              
+ 
+
+
+    BANKSEL     PWM_VAL
+    MOVLW       .128                    ;
+    MOVWF       PWM_VAL                 ; SETA PWM PARA 2^8
 ROTINA_TESTE:
     BANKSEL     ADCON0
     BSF         START_CONV              ; INICIA CONVERSAO
@@ -153,9 +173,29 @@ ROTINA_TESTE:
     GOTO        $-1                     ; ESPERA FIM DE CONVERSAO
     BANKSEL     ADRESL
     MOVF        ADRESL, W               ; MOVE RESULTADO DA CONVERSAO PARA W
-    BANKSEL     CCPR1L
-    MOVWF       CCPR1L                  ; SETA PWM PARA RESULTADO DA CONVERSAO
-   
+    BANKSEL     PORTD
+    MOVWF       PORTD
+    
+    NOP
+    NOP
+    NOP
+    NOP
+    NOP
+    NOP
+    NOP
+    NOP
+    NOP
+    NOP
+    NOP
+    NOP
+    NOP
+    NOP
+    NOP
+    NOP
+    NOP
+    NOP
+    NOP
+    NOP
     GOTO        ROTINA_TESTE
  
     END
