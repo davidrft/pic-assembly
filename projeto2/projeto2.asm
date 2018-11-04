@@ -39,7 +39,7 @@ BANK3   MACRO
         ENDM              
  
 ; --- CONSTANTES ---
-DELAY_1S    EQU     D'246'
+DELAY_2S    EQU     D'236'
  
 ; --- ENTRADAS ---
 #DEFINE     PRESENCA        PORTB, RB0   ; ENTRADA DIGITAL COM INTERRUPCAO
@@ -69,6 +69,14 @@ DELAY_1S    EQU     D'246'
         W_TEMP
         STATUS_TEMP
         PCLATH_TEMP
+
+        MINUTO
+        TEMPERATURA_F
+        LUMINOSIDADE_F
+
+        NUMERO1
+        NUMERO2
+        RESULTADO
     ENDC
  
 ; --- VETOR DE RESET ---
@@ -88,6 +96,11 @@ DELAY_1S    EQU     D'246'
     CLRF        PCLATH                  ; PAGE ZERO, REGARDLESS OF CURRENT PAGE 
  
 ; --- TRATAMENTO DA ISR ---
+    BTFSS       EXTFLAG
+    GOTO        EXIT_ISR
+
+    BTFSC       TFLAG
+    CALL        CONTADOR
  
 ; --- RECUPERACAO DE CONTEXTO ---
 EXIT_ISR:
@@ -102,7 +115,63 @@ EXIT_ISR:
     RETFIE
  
 ; --- SUBROTINAS ---
- 
+
+MEDE_TEMPERATURA:
+    MOVLW       D'30'
+    MOVWF       MINUTO
+    BANKSEL     ADCON0
+    BSF         START_CONV              ; INICIA CONVERSAO
+    BTFSC       START_CONV              ; TESTA FIM DE CONVERSAO
+    GOTO        $-1                     ; ESPERA FIM DE CONVERSAO
+    BANKSEL     ADRESL
+    MOVF        ADRESL, W               ; MOVE RESULTADO DA CONVERSAO PARA W
+    BANKSEL     TEMPERATURA_F
+    MOVWF       TEMPERATURA_F
+    RETURN
+
+MEDE_LUMINOSIDADE:
+    BANKSEL     ADCON0
+    BSF         START_CONV              ; INICIA CONVERSAO
+    BTFSC       START_CONV              ; TESTA FIM DE CONVERSAO
+    GOTO        $-1                     ; ESPERA FIM DE CONVERSAO
+    BANKSEL     ADRESL
+    MOVF        ADRESL, W               ; MOVE RESULTADO DA CONVERSAO PARA W
+    BANKSEL     LUMINOSIDADE_F
+    MOVWF       LUMINOSIDADE_F
+    RETURN
+
+CONTADOR:
+    BCF        TFLAG
+    CALL       RESET_TIMER
+    DECFSZ     MINUTO
+    CALL       MEDE_TEMPERATURA
+    CALL       MEDE_LUMINOSIDADE
+    RETURN
+
+MAIOR_QUE:
+    CLRF       RESULTADO
+    MOVF       NUMERO1, W
+    SUBWF      NUMERO2, W
+    BTFSC      STATUS, Z
+    GOTO       IGUAIS
+    BTFSC      STATUS, C
+    GOTO       MAIOR
+    MOVLW      H'01'           ; NUMERO1 E MAIOR QUE NUMERO2
+    MOVWF      RESULTADO
+    RETURN
+IGUAL:
+    MOVLW      H'00'
+    MOVWF      RESULTADO
+    RETURN
+MENOR:
+    MOVLW      H'02'
+    MOVWF      RESULTADO
+    RETURN
+
+RESET_TIMER:
+    MOVLW      DELAY_2S
+    MOVWF      TMR0
+    RETURN
  
 ; --- PROGRAMA PRINCIPAL ---
 SETUP:
@@ -112,18 +181,18 @@ SETUP:
     BANKSEL     TRISC
     CLRF        TRISC                   ; CONFIGURA PORTA C COMO SAÍDA            
     
-    BANKSEL OPTION_REG
-    MOVLW	B'11101000'		 ;HABILITA CLOCK EXTERNO
-	MOVWF	OPTION_REG	 ;DEFINE OP��ES DE OPERA��O
-    	                    				          ;PRESCALER DE 1:1
+    BANKSEL     OPTION_REG
+    MOVLW	     B'11101000'             ; HABILITA CLOCK EXTERNO
+    MOVWF	     OPTION_REG              ; DEFINE OP��ES DE OPERA��O
+                                        ; PRESCALER DE 1:1
 
     ; -- CONFIGURACAO DO PWM --
     BANKSEL     T1CON
-	MOVLW B'00001100'	        ;ATIVAR O PWM E COLOCA O DOIS BITS MENOS 
-							;SIGNIFICATVOS DO PWM PARA 00
-							;O PWM TEM 10 BITS ONDE OS OUTROS EST�O EM CCPR1L
-	MOVWF	CCP1CON  ;MODO DESLIGADO
-	BSF		T1CON,0    ; TMR1 LIGADO
+	MOVLW       B'00001100'	        ; ATIVAR O PWM E COLOCA O DOIS BITS MENOS 
+							            ; SIGNIFICATVOS DO PWM PARA 00
+							            ; O PWM TEM 10 BITS ONDE OS OUTROS EST�O EM CCPR1L
+	MOVWF	CCP1CON                   ; MODO DESLIGADO
+	BSF		T1CON,0                   ; TMR1 LIGADO
 ;    MOVLW       B'00000001'             ; ATIVA TIMER1, CLOCK INTERNO (FOSC/4), SEM PRESCALER
 ;    MOVWF       T1CON
 ;    MOVLW       B'00001100'             ; CONFIGURA 2 LSB DO DUTY CYCLE DO PWM PARA 0
@@ -134,11 +203,11 @@ SETUP:
     BANKSEL     PORTB                   ; SELECIONA BANK0
     CLRF        PORTB                   ; LIMPA SAIDAS EM PORTB
     BANKSEL     TRISB
-    MOVLW       0x03
+    MOVLW       H'03'
     MOVWF       TRISB                   ; CONFIGURA RB<1:0> COMO INPUTS
  
     BANKSEL     INTCON
-    MOVLW       0x00
+    MOVLW       H'00'
     MOVWF       INTCON                  ; INICIA COM TODAS AS INTERRUPCOES DESATIVADAS
   
     BANKSEL     PORTC
@@ -155,47 +224,31 @@ SETUP:
                                         ; CONFIGURA JUSTIFICADO A DIREITA
     MOVWF       ADCON1
     BANKSEL     TRISA
-    MOVLW       B'00000011'                    ; CONFIGURA RA<1:0> COMO INPUTS
+    MOVLW       B'00000011'             ; CONFIGURA RA<1:0> COMO INPUTS
     MOVWF       TRISA
     BANKSEL     ADCON0
-	MOVLW		0x01
+    MOVLW		  H'01'
     MOVWF       ADCON0                  ; CONFIGURA FOSC/2, LIGA CONVERSOR              
  
-
-
     BANKSEL     PWM_VAL
-    MOVLW       .128                    ;
+    MOVLW       D'128'                    ;
     MOVWF       PWM_VAL                 ; SETA PWM PARA 2^8
-ROTINA_TESTE:
-    BANKSEL     ADCON0
-    BSF         START_CONV              ; INICIA CONVERSAO
-    BTFSC       START_CONV              ; TESTA FIM DE CONVERSAO
-    GOTO        $-1                     ; ESPERA FIM DE CONVERSAO
-    BANKSEL     ADRESL
-    MOVF        ADRESL, W               ; MOVE RESULTADO DA CONVERSAO PARA W
-    BANKSEL     PORTD
-    MOVWF       PORTD
+
+    CLRF        TMR0
+    BCF         TFLAG
+    MOVLW       DELAY_2S
+    MOVWF       TMR0
     
-    NOP
-    NOP
-    NOP
-    NOP
-    NOP
-    NOP
-    NOP
-    NOP
-    NOP
-    NOP
-    NOP
-    NOP
-    NOP
-    NOP
-    NOP
-    NOP
-    NOP
-    NOP
-    NOP
-    NOP
-    GOTO        ROTINA_TESTE
- 
+    MOVLW       D'30'
+    MOVWF      MINUTO
+
+MAIN:
+    BTFSS      PARTIDA
+    GOTO       MAIN
+    BSF        ON
+    BANKSEL    INTCON
+    MOVLW      B'10111000'
+    MOVWF      INTCON
+    GOTO       $
+
     END
