@@ -155,7 +155,7 @@ MAIOR_QUE:
     BTFSC      STATUS, Z
     GOTO       IGUAIS
     BTFSC      STATUS, C
-    GOTO       MAIOR
+    GOTO       MENOR
     MOVLW      H'01'           ; NUMERO1 E MAIOR QUE NUMERO2
     MOVWF      RESULTADO
     RETURN
