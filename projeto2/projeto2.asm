@@ -59,7 +59,7 @@ DELAY_2S    EQU     D'236'
 #DEFINE     TFLAG       INTCON, T0IF     ; TIMER OVERFLOW
 #DEFINE     EXTFLAG     INTCON, INTF     ; INTERRUPCAO EXTERNA
 #DEFINE     RFLAG       INTCON, RBIF     ; INTERRUPCAO DE MUDANCA DE ESTADO RB4 - RB7
-#DEFINE     ZERO        STATUS, Z        ; RESULTADO DA ULTIMA OPERACAO FOI 0
+#DEFINE     INTEDGE     OPTION_REG, 6    ; BORDA DA INTERRUPCAO EXTERNA
 #DEFINE     PWM_VAL     CCPR1L           ; COMPRIMENTO DO PULSO DO PWM
 #DEFINE     START_CONV  ADCON0, 2        ; BIT DE CONTROLE DA CONVERSÃO A/D
  
@@ -69,11 +69,11 @@ DELAY_2S    EQU     D'236'
         W_TEMP
         STATUS_TEMP
         PCLATH_TEMP
-
+        
         MINUTO
         TEMPERATURA_F
         LUMINOSIDADE_F
-
+        ; *** ARGUMENTOS PARA ROTINA DE COMPARACAO ***
         NUMERO1
         NUMERO2
         RESULTADO
@@ -98,6 +98,12 @@ DELAY_2S    EQU     D'236'
 ; --- TRATAMENTO DA ISR ---
     BTFSS       EXTFLAG
     GOTO        EXIT_ISR
+    
+    BANKSEL     OPTION_REG
+    BTFSS       INTEDGE                 ; CHECA BORDA DA INTERRUPÇÃO DO PINO RB0
+    CALL        BORDA_DESCIDA           ; COLOCA SISTEMA EM MODO DE BAIXA ENERGIA E CONFIGURA BORDA DE SUBIDA
+    GOTO        EXIT_ISR
+    CALL        BORDA_SUBIDA            ; CONFIGURA BORDA DE DESCIDA E CONTINUA EXECUCAO DA ISR
 
     BTFSC       TFLAG
     CALL        CONTADOR
@@ -116,10 +122,23 @@ EXIT_ISR:
  
 ; --- SUBROTINAS ---
 
+BORDA_SUBIDA:
+    BCF         INTEDGE                  ; CONFIGURA BORDA DE DESCIDA
+    RETURN
+BORDA_DESCIDA:
+    BSF         INTEDGE                  ; CONFIGURA BORDA DE SUBIDA
+    ; desligar tudo (PWM, luzes etc), resetar timer
+    RETURN
+
 MEDE_TEMPERATURA:
     MOVLW       D'30'
     MOVWF       MINUTO
     BANKSEL     ADCON0
+    MOVF        ADCON0,W                ; ARMAZENA VALOR DE ADCON0 EM W
+    ANDLW       B'11000111'             ; LIMPA BITS DE SELECAO DO CANAL
+    XORLW       B'00000000'             ; CONFIGURA CANAL 0
+    MOVWF       ADCON0                  ; SALVA CONFIGURACAO EM ADCON0
+
     BSF         START_CONV              ; INICIA CONVERSAO
     BTFSC       START_CONV              ; TESTA FIM DE CONVERSAO
     GOTO        $-1                     ; ESPERA FIM DE CONVERSAO
@@ -131,6 +150,11 @@ MEDE_TEMPERATURA:
 
 MEDE_LUMINOSIDADE:
     BANKSEL     ADCON0
+    MOVF        ADCON0,W                ; ARMAZENA VALOR DE ADCON0 EM W
+    ANDLW       B'11000111'             ; LIMPA BITS DE SELECAO DO CANAL
+    XORLW       B'00001000'             ; CONFIGURA CANAL 1
+    MOVWF       ADCON0                  ; SALVA CONFIGURACAO EM ADCON0
+
     BSF         START_CONV              ; INICIA CONVERSAO
     BTFSC       START_CONV              ; TESTA FIM DE CONVERSAO
     GOTO        $-1                     ; ESPERA FIM DE CONVERSAO
@@ -158,14 +182,15 @@ MAIOR_QUE:
     GOTO       MENOR
     MOVLW      H'01'           ; NUMERO1 E MAIOR QUE NUMERO2
     MOVWF      RESULTADO
-    RETURN
+    GOTO       END_COMP 
 IGUAL:
     MOVLW      H'00'
     MOVWF      RESULTADO
-    RETURN
-MENOR:
+    GOTO       END_COMP
+MENOR_QUE:
     MOVLW      H'02'
     MOVWF      RESULTADO
+END_COMP:
     RETURN
 
 RESET_TIMER:
@@ -182,22 +207,17 @@ SETUP:
     CLRF        TRISC                   ; CONFIGURA PORTA C COMO SAÍDA            
     
     BANKSEL     OPTION_REG
-    MOVLW	     B'11101000'             ; HABILITA CLOCK EXTERNO
-    MOVWF	     OPTION_REG              ; DEFINE OP��ES DE OPERA��O
+    MOVLW	    B'11101000'             ; HABILITA CLOCK EXTERNO
+    MOVWF	    OPTION_REG              ; DEFINE OPCOES DE OPERACAO
                                         ; PRESCALER DE 1:1
 
     ; -- CONFIGURACAO DO PWM --
     BANKSEL     T1CON
-	MOVLW       B'00001100'	        ; ATIVAR O PWM E COLOCA O DOIS BITS MENOS 
-							            ; SIGNIFICATVOS DO PWM PARA 00
-							            ; O PWM TEM 10 BITS ONDE OS OUTROS EST�O EM CCPR1L
-	MOVWF	CCP1CON                   ; MODO DESLIGADO
-	BSF		T1CON,0                   ; TMR1 LIGADO
-;    MOVLW       B'00000001'             ; ATIVA TIMER1, CLOCK INTERNO (FOSC/4), SEM PRESCALER
-;    MOVWF       T1CON
-;    MOVLW       B'00001100'             ; CONFIGURA 2 LSB DO DUTY CYCLE DO PWM PARA 0
-;                                        ; CONFIGURA TIMER 1 NO MODO PWM
-;    MOVWF       CCP1CON
+    BSF         T1CON,0                 ; ATIVA TIMER1
+    MOVWF       T1CON
+    MOVLW       B'00001100'             ; CONFIGURA 2 LSB DO DUTY CYCLE DO PWM PARA 0
+                                        ; CONFIGURA TIMER 1 NO MODO PWM
+    MOVWF       CCP1CON
  
     ; -- CONFIGURACAO DE I/O --
     BANKSEL     PORTB                   ; SELECIONA BANK0
@@ -227,11 +247,11 @@ SETUP:
     MOVLW       B'00000011'             ; CONFIGURA RA<1:0> COMO INPUTS
     MOVWF       TRISA
     BANKSEL     ADCON0
-    MOVLW		  H'01'
+    MOVLW		B'00000001'
     MOVWF       ADCON0                  ; CONFIGURA FOSC/2, LIGA CONVERSOR              
  
     BANKSEL     PWM_VAL
-    MOVLW       D'128'                    ;
+    MOVLW       D'128'                  ;
     MOVWF       PWM_VAL                 ; SETA PWM PARA 2^8
 
     CLRF        TMR0
@@ -240,15 +260,18 @@ SETUP:
     MOVWF       TMR0
     
     MOVLW       D'30'
-    MOVWF      MINUTO
+    MOVWF       MINUTO
 
 MAIN:
     BTFSS      PARTIDA
     GOTO       MAIN
     BSF        ON
     BANKSEL    INTCON
-    MOVLW      B'10111000'
+    MOVLW      B'10111000'              ; ATIVA INTERRUPCAO: GLOBAL, TIMER0, RB0, RB4-7
     MOVWF      INTCON
+    BANKSEL    PIE1
+    MOVLW      B'01000000'              ; ATIVA INTERRUPCAO DO CONVERSOR A/D
+    MOVWF      PIE1
     GOTO       $
 
     END
