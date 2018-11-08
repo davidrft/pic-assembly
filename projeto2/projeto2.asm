@@ -355,6 +355,8 @@ SETUP:
     MOVLW       D'30'
     MOVWF       MINUTO
 
+    CLRF       PWM_VAL
+
 MAIN:
     BTFSS      PARTIDA
     GOTO       MAIN
